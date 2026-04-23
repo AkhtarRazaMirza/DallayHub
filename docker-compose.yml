@@ -1,0 +1,14 @@
+services:
+  postgresdb:
+    image: postgres:17
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: akhtar
+      POSTGRES_PASSWORD: akhtar
+      POSTGRES_DB: dallyhub
+    volumes:
+      - 'dallyhub_data:/var/lib/postgresql/data'
+
+volumes:
+  dallyhub_data:
