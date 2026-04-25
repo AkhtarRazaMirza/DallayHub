@@ -11,16 +11,23 @@ const transporter = nodemailer.createTransport({
 });
 
 const sendEmail = async (to: string, subject: string, html: string) => {
-  await transporter.sendMail({
-    from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
-    to,
-    subject,
-    html,
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
+      to,
+      subject,
+      html,
+    });
+
+    console.log("Email sent:", info);
+  } catch (error) {
+    console.error("EMAIL ERROR:", error);
+  }
 };
 
+
 const sendVerificationEmail = async (email: string, token: string) => {
-  const url = `${process.env.CLIENT_URL}/verify-email/${token}`;
+  const url = `http://localhost:8080/api/auth/verify-email/${token}`;
   await sendEmail(
     email,
     "Verify your email",
@@ -29,7 +36,7 @@ const sendVerificationEmail = async (email: string, token: string) => {
 };
 
 const sendResetPasswordEmail = async (email: string, token: string) => {
-  const url = `${process.env.CLIENT_URL}/reset-password/${token}`;
+  const url = `http://localhost:8080/api/auth/reset-password/${token}`;
   await sendEmail(
     email,
     "Reset your password",
@@ -37,23 +44,7 @@ const sendResetPasswordEmail = async (email: string, token: string) => {
   );
 };
 
-const sendOrderConfirmationEmail = async (email: string, order: any) => {
-  const items = order.items
-    .map((i: any) => `<li>${i.title} x${i.quantity} — ₹${i.price}</li>`)
-    .join("");
-
-  await sendEmail(
-    email,
-    `Order Confirmed — ${order.orderNumber}`,
-    `<h2>Order Confirmed!</h2>
-     <p>Order: ${order.orderNumber}</p>
-     <ul>${items}</ul>
-     <p><strong>Total: ₹${order.totalAmount}</strong></p>`,
-  );
-};
-
 export {
   sendVerificationEmail,
   sendResetPasswordEmail,
-  sendOrderConfirmationEmail,
 };

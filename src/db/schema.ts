@@ -1,4 +1,4 @@
-import { pgTable, varchar, boolean, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, varchar, boolean, timestamp, uuid, text } from "drizzle-orm/pg-core";
 
 /**
  * PostgreSQL Users Table Schema
@@ -42,4 +42,33 @@ export const usersTable = pgTable("users", {
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
+});
+
+
+export const sessionsTable = pgTable("sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id").references(() => usersTable.id, { onDelete: "cascade" }).notNull(),
+  refresh_token: text("refresh_token").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  expires_at: timestamp("expires_at").notNull()
+});
+
+export const emailVerificationTable = pgTable("email_verification_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id")
+    .references(() => usersTable.id, { onDelete: "cascade" })
+    .notNull(),
+  token: text("token").notNull(),
+  expires_at: timestamp("expires_at").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const passwordResetTable = pgTable("password_reset_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id")
+    .references(() => usersTable.id, { onDelete: "cascade" })
+    .notNull(),
+  token: text("token").notNull(),
+  expires_at: timestamp("expires_at").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });

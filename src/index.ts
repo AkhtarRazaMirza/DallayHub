@@ -3,7 +3,7 @@ import { createApp } from "./config/app.js";
 import http from "node:http";
 import { env } from "./env.js";
 import { db } from "./config/db.js";
-import { usersTable } from "./db/schema.js";
+import { usersTable, sessionsTable, emailVerificationTable, passwordResetTable } from "./db/schema.js";
 
 /**
  * Application Entry Point
@@ -31,7 +31,13 @@ try {
     await db.execute("SELECT 1");
     console.log("Database client initialized successfully");
     const testUser = await db.select().from(usersTable);
+    const testSession = await db.select().from(sessionsTable);
+    const testEmailVerification = await db.select().from(emailVerificationTable);
+    const testPasswordReset = await db.select().from(passwordResetTable);
     console.log("Test user:", testUser);
+    // console.log("Test session:", testSession);
+    // console.log("Test email verification:", testEmailVerification);
+    // console.log("Test password reset:", testPasswordReset);
 
   } catch (error) {
     console.error("Failed to connect to database:", error);

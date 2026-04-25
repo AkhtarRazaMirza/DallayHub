@@ -1,6 +1,8 @@
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service.js";
 import ApiResponse from "../utils/success.js";
+import ApiError from "../utils/error.js";
+import e from "express";
 /**
  * Register new user with email, password, first name, and last name
  * - Validates input using RegisterDto
@@ -18,19 +20,20 @@ export const register = async (req: Request, res: Response) => {
     };
     const result = await AuthService.registerUser(data);
 
-    res.cookie("refreshToken", result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    // res.cookie("refreshToken", result.refreshToken, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite: "strict",
+    //   maxAge: 7 * 24 * 60 * 60 * 1000,
+    // });
 
-    return ApiResponse.created(res, "User registered successfully", {
-      accessToken: result.accessToken,
-      user: result.user,
-    });
+    // return ApiResponse.created(res, "User registered successfully", {
+    //   // accessToken: result.accessToken,
+    //   // user: result.user,
+    // });
+    return ApiResponse.created(res, "Please verify your email", {});
   } catch (error) {
-    throw error;
+    throw error
   }
 };
 
@@ -46,11 +49,14 @@ export const login = async (req: Request, res: Response) => {
       password: string;
     };
     const result = await AuthService.loginUser(data);
+    if (!result.user.isVerified) {
+      throw ApiError.unauthorized("Please verify your email first");
+    }
 
     res.cookie("refreshToken", result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -59,7 +65,7 @@ export const login = async (req: Request, res: Response) => {
       user: result.user,
     });
   } catch (error) {
-    throw error;
+    throw error
   }
 };
 
@@ -71,19 +77,25 @@ export const login = async (req: Request, res: Response) => {
 export const refreshTokenHandler = async (req: Request, res: Response) => {
   try {
     const refreshToken =
-      req.cookies?.refreshToken || req.body?.refreshToken;
+      req.cookies?.refreshToken;
 
     if (!refreshToken) {
-      throw new Error("No refresh token provided");
+      throw ApiError.unauthorized("No refresh token provided");
     }
 
     const result = await AuthService.refreshAccessToken(refreshToken);
 
+    res.cookie("refreshToken", result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
     return ApiResponse.ok(res, "Token refreshed", {
       accessToken: result.accessToken,
     });
   } catch (error) {
-    throw error;
+    throw error
   }
 };
 
@@ -94,10 +106,16 @@ export const refreshTokenHandler = async (req: Request, res: Response) => {
  */
 export const logout = async (req: Request, res: Response) => {
   try {
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (refreshToken) {
+      await AuthService.logout(refreshToken);
+    }
+
     res.clearCookie("refreshToken");
     return ApiResponse.ok(res, "Logged out successfully", {});
   } catch (error) {
-    throw error;
+    throw error
   }
 };
 
@@ -109,14 +127,14 @@ export const logout = async (req: Request, res: Response) => {
 export const getCurrentUser = async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      throw new Error("User not authenticated");
+      throw ApiError.unauthorized("User not authenticated");
     }
 
     const user = await AuthService.getCurrentUser(req.user.id);
 
     return ApiResponse.ok(res, "User fetched successfully", user);
   } catch (error) {
-    throw error;
+    throw error
   }
 };
 
@@ -153,7 +171,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     };
 
     if (!token || Array.isArray(token)) {
-      throw new Error("Invalid reset token");
+      throw ApiError.badRequest("Invalid reset token");
     }
 
     const result = await AuthService.resetPassword(token, data.newPassword);
@@ -174,7 +192,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
     const { token } = req.params;
 
     if (!token || Array.isArray(token)) {
-      throw new Error("Invalid verification token");
+      throw ApiError.badRequest("Invalid verification token");
     }
 
     const result = await AuthService.verifyEmail(token);
@@ -185,97 +203,3 @@ export const verifyEmail = async (req: Request, res: Response) => {
   }
 };
 
-//     return ApiResponse.ok(res, "Token refreshed", {
-//       accessToken: result.accessToken,
-//     });
-//   } catch (error) {
-//     throw error;
-//   }
-// };
-
-// /**
-//  * Logout user (clear refresh token cookie)
-//  */
-// export const logout = async (req: Request, res: Response) => {
-//   try {
-//     res.clearCookie("refreshToken");
-
-//     return ApiResponse.ok(res, "Logout successful", {
-//       message: "You have been logged out",
-//     });
-//   } catch (error) {
-//     throw error;
-//   }
-// };
-
-// /**
-//  * Get current authenticated user
-//  */
-// export const getCurrentUser = async (req: Request, res: Response) => {
-//   try {
-//     if (!req.user) {
-//       throw new Error("User not authenticated");
-//     }
-
-//     const user = await AuthService.getCurrentUser(req.user.id);
-
-//     return ApiResponse.ok(res, "User fetched", user);
-//   } catch (error) {
-//     throw error;
-//   }
-// };
-
-// /**
-//  * Request password reset link
-//  */
-// export const forgotPassword = async (req: Request, res: Response) => {
-//   try {
-//     const { email } = req.body;
-//     const result = await AuthService.requestPasswordReset(email);
-
-//     return ApiResponse.ok(res, result.message, {});
-//   } catch (error) {
-//     throw error;
-//   }
-// };
-
-// /**
-//  * Reset password with token
-//  */
-// export const resetPassword = async (req: Request, res: Response) => {
-//   try {
-//     // TODO: Implement password reset logic
-//     // 1. Hash reset token with SHA-256
-//     // 2. Find user with matching hashed token
-//     // 3. Check token not expired
-//     // 4. Hash new password
-//     // 5. Update user password
-//     // 6. Clear reset token from DB
-
-//     return ApiResponse.ok(res, "Password reset successful", {
-//       message: "Your password has been updated",
-//     });
-//   } catch (error) {
-//     throw error;
-//   }
-// };
-
-// /**
-//  * Verify user's email address
-//  */
-// export const verifyEmail = async (req: Request, res: Response) => {
-//   try {
-//     // TODO: Implement email verification logic
-//     // 1. Hash token with SHA-256
-//     // 2. Find user with matching hashed token
-//     // 3. Check token not expired
-//     // 4. Mark user as verified
-//     // 5. Clear verification token from DB
-
-//     return ApiResponse.ok(res, "Email verified successfully", {
-//       message: "Your email has been verified",
-//     });
-//   } catch (error) {
-//     throw error;
-//   }
-// };
