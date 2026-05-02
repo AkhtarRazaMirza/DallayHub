@@ -21,12 +21,12 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   
   // Email Configuration (SMTP)
-  SMTP_HOST: z.string().min(1, "SMTP_HOST is required"),
-  SMTP_PORT: z.string().optional().default("587"),
-  SMTP_USER: z.string().min(1, "SMTP_USER is required"),
-  SMTP_PASS: z.string().min(1, "SMTP_PASS is required"),
-  SMTP_FROM_NAME: z.string().optional().default("DallyHub"),
-  SMTP_FROM_EMAIL: z.string().email("SMTP_FROM_EMAIL must be valid email"),
+  // SMTP_HOST: z.string().min(1, "SMTP_HOST is required"),
+  // SMTP_PORT: z.string().optional().default("587"),
+  // SMTP_USER: z.string().min(1, "SMTP_USER is required"),
+  // SMTP_PASS: z.string().min(1, "SMTP_PASS is required"),
+  EMAIL_FROM_NAME: z.string().optional().default("SecureAuth"),
+  EMAIL_FROM: z.string().email("EMAIL_FROM must be valid email"),
   
   // Frontend URL for email links
   CLIENT_URL: z.string().url("CLIENT_URL must be valid URL"),

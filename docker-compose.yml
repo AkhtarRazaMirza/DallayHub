@@ -6,9 +6,9 @@ services:
     environment:
       POSTGRES_USER: akhtar
       POSTGRES_PASSWORD: akhtar
-      POSTGRES_DB: dallyhub
+      POSTGRES_DB: SecureAuth
     volumes:
-      - 'dallyhub_data:/var/lib/postgresql/data'
+      - 'SecureAuth_data:/var/lib/postgresql/data'
 
 volumes:
-  dallyhub_data:
+  SecureAuth_data:

@@ -35,9 +35,9 @@ try {
     const testEmailVerification = await db.select().from(emailVerificationTable);
     const testPasswordReset = await db.select().from(passwordResetTable);
     console.log("Test user:", testUser);
-    // console.log("Test session:", testSession);
-    // console.log("Test email verification:", testEmailVerification);
-    // console.log("Test password reset:", testPasswordReset);
+    console.log("Test session:", testSession);
+    console.log("Test email verification:", testEmailVerification);
+    console.log("Test password reset:", testPasswordReset);
 
   } catch (error) {
     console.error("Failed to connect to database:", error);

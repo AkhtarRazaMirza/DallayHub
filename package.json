@@ -1,5 +1,5 @@
 {
-  "name": "dallyhub",
+  "name": "dallyhub-backend",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -10,11 +10,11 @@
     "generateDB": "drizzle-kit generate",
     "migrateDB": "drizzle-kit migrate"
   },
-  "keywords": [],
+  "keywords": ["auth", "authentication", "authorization", "jwt", "bcrypt", "nodejs", "express", "postgresql", "oauth2.0"],
   "author": "Akhtar Raza",
   "license": "ISC",
   "type": "module",
-  "description": "",
+  "description": "This is a secure authentication system built with Node.js, Express, and PostgreSQL. It provides features such as user registration, login, password hashing, JWT-based authentication, and email verification. and it also have oauth2.0 authentication with google and github",
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
@@ -36,6 +36,7 @@
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^8.0.5",
     "pg": "^8.20.0",
+    "resend": "^6.12.2",
     "tsc": "^2.0.4",
     "zod": "^4.3.6"
   }
