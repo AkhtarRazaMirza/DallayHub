@@ -10,7 +10,17 @@
     "generateDB": "drizzle-kit generate",
     "migrateDB": "drizzle-kit migrate"
   },
-  "keywords": ["auth", "authentication", "authorization", "jwt", "bcrypt", "nodejs", "express", "postgresql", "oauth2.0"],
+  "keywords": [
+    "auth",
+    "authentication",
+    "authorization",
+    "jwt",
+    "bcrypt",
+    "nodejs",
+    "express",
+    "postgresql",
+    "oauth2.0"
+  ],
   "author": "Akhtar Raza",
   "license": "ISC",
   "type": "module",
@@ -28,11 +38,14 @@
   "dependencies": {
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
+    "axios": "^1.15.2",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^8.0.5",
     "pg": "^8.20.0",

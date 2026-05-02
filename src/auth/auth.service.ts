@@ -4,6 +4,8 @@ import ApiError from "../utils/error.js";
 import { db } from "../config/db.js";
 import { usersTable, sessionsTable, emailVerificationTable, passwordResetTable } from "../db/schema.js";
 import { eq, lt } from "drizzle-orm";
+import axios from "axios";
+import { OAuth2Client } from "google-auth-library";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -457,4 +459,112 @@ export class AuthService {
       .delete(sessionsTable)
       .where(eq(sessionsTable.refresh_token, hashed));
   }
+
+
+  static getGoogleAuthUrl = () => {
+    const redirectUri = `${process.env.CLIENT_URL}/api/auth/google/callback`;
+
+    return (
+      "https://accounts.google.com/o/oauth2/v2/auth?" +
+      `client_id=${process.env.GOOGLE_CLIENT_ID}` +
+      `&redirect_uri=${redirectUri}` +
+      `&response_type=code` +
+      `&scope=openid email profile` +
+      `&access_type=offline` +
+      `&prompt=consent`
+    );
+  };
+
+  static handleGoogleCallback = async (code: string) => {
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    if (!googleClientId) {
+      throw ApiError.internal("Google client ID is not configured");
+    }
+
+    const googleClient = new OAuth2Client(googleClientId);
+    // 1. Exchange code for token
+    const tokenRes = await axios.post(
+      "https://oauth2.googleapis.com/token",
+      {
+        code,
+        client_id: googleClientId,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: `${process.env.CLIENT_URL}/api/auth/google/callback`,
+        grant_type: "authorization_code",
+      }
+    );
+
+    const { id_token } = tokenRes.data;
+
+    // 2. Verify token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: id_token,
+      audience: googleClientId,
+    });
+
+    const payload = ticket.getPayload();
+    const email = payload?.email;
+    const firstName = payload?.given_name || '';
+    const lastName = payload?.family_name || '';
+
+    if (!email) {
+      throw new Error("No email from Google");
+    }
+
+    // 3. Find or create user
+    const users = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
+
+    let user = users[0];
+
+    if (!user) {
+      await db
+        .insert(usersTable)
+        .values({
+          email,
+          firstName,
+          lastName,
+          password: '', // OAuth users don't have passwords
+          isVerified: true,
+        });
+
+      const newUsers = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, email));
+
+      user = newUsers[0]!;
+    } else if (!user.isVerified) {
+      await db
+        .update(usersTable)
+        .set({ isVerified: true })
+        .where(eq(usersTable.id, user.id));
+      user.isVerified = true;
+    }
+
+    // 4. Generate tokens
+    const accessToken = generateAccessToken({ userId: user.id });
+    const refreshToken = generateRefreshToken({ userId: user.id });
+    const hashedToken = AuthService.hashToken(refreshToken);
+
+    await db.insert(sessionsTable).values({
+      user_id: user.id,
+      refresh_token: hashedToken,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isVerified: user.isVerified,
+      },
+    };
+  };
 }

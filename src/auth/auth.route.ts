@@ -8,8 +8,10 @@ import {
   forgotPassword,
   resetPassword,
   verifyEmail,
-} from "./cuth.controler.js";
-import  validate  from "../middlewares/validated.js";
+  googleAuth,
+  googleCallback
+} from "./auth.controler.js";
+import validate from "../middlewares/validated.js";
 import RegisterDto from "./dto/regestor.js";
 import LoginDto from "./dto/login.js";
 import ForgotPasswordDto from "./dto/forgot-password.js";
@@ -72,5 +74,10 @@ router.put("/reset-password/:token", validate(ResetPasswordDto), resetPassword);
  * Token comes from verification email sent during registration
  */
 router.get("/verify-email/:token", verifyEmail);
+
+// oAuth routes (Google, GitHub, etc.) would go here,
+router.get("/google", googleAuth);
+
+router.get("/google/callback", googleCallback);
 
 export default router;

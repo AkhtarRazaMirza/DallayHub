@@ -203,3 +203,29 @@ export const verifyEmail = async (req: Request, res: Response) => {
   }
 };
 
+export const googleAuth = (req: Request, res: Response) => {
+  const url = AuthService.getGoogleAuthUrl();
+  return res.redirect(url);
+};
+
+export const googleCallback = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { code } = req.query;
+
+    if (!code || typeof code !== "string") {
+      return res.status(400).send("Missing code");
+    }
+
+    const result = await AuthService.handleGoogleCallback(code);
+
+    return res.redirect(
+      `${process.env.CLIENT_URL}/oauth-success?token=${result.accessToken}`
+    );
+  } catch (error) {
+    console.error("OAuth error:", error);
+    return res.status(500).send("OAuth failed");
+  }
+};
