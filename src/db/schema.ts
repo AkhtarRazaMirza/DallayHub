@@ -1,4 +1,4 @@
-import { pgTable, varchar, boolean, timestamp, uuid, text } from "drizzle-orm/pg-core";
+import { pgTable, varchar, boolean, timestamp, uuid, text, integer } from "drizzle-orm/pg-core";
 
 /**
  * PostgreSQL Users Table Schema
@@ -12,6 +12,7 @@ import { pgTable, varchar, boolean, timestamp, uuid, text } from "drizzle-orm/pg
  * - isVerified: Email verification status (default: false)
  * - password: Hashed password using bcryptjs (max 66 chars for bcrypt hash)
  * - salt: Bcrypt salt used for password hashing
+ * - role: User role for RBAC (default: "user")
  * - createdAt: Account creation timestamp (auto-set)
  * - updatedAt: Last update timestamp (auto-updated)
  */
@@ -34,6 +35,10 @@ export const usersTable = pgTable("users", {
   // Hashed password (bcryptjs produces 60 char hashes, storing 66 for safety)
   password: varchar("password", { length: 66 }).notNull(),
   
+  // User role for Role-Based Access Control (default: "user")
+  // Values: "user" (regular user), "admin" (administrator)
+  role: varchar("role", { length: 20 }).default("user").notNull(),
+  
   // Account creation timestamp
   createdAt: timestamp("created_at").defaultNow().notNull(),
   
@@ -49,6 +54,8 @@ export const sessionsTable = pgTable("sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
   user_id: uuid("user_id").references(() => usersTable.id, { onDelete: "cascade" }).notNull(),
   refresh_token: text("refresh_token").notNull(),
+  // Token version for refresh token rotation (invalidates old tokens on rotation)
+  token_version: integer("token_version").default(1).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   expires_at: timestamp("expires_at").notNull()
 });

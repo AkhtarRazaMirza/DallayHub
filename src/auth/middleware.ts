@@ -14,6 +14,7 @@ interface AuthenticatedUser {
   email: string;
   firstName: string;
   lastName?: string | undefined;
+  role: string;
 }
 
 /**
@@ -86,6 +87,7 @@ const authenticate = async (
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName || undefined,
+      role: user.role,
     };
 
     // Proceed to next middleware/handler

@@ -65,6 +65,14 @@ class ApiError extends Error {
   static internal(message = "Internal server error") {
     return new ApiError(500, message);
   }
+
+  /**
+   * 429 Too Many Requests - Rate limit exceeded
+   * Use when client makes too many requests in a time window
+   */
+  static tooManyRequests(message = "Too many requests") {
+    return new ApiError(429, message);
+  }
 }
 
 export default ApiError;

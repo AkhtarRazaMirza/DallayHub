@@ -17,6 +17,7 @@ import LoginDto from "./dto/login.js";
 import ForgotPasswordDto from "./dto/forgot-password.js";
 import ResetPasswordDto from "./dto/reset-password.js";
 import { authenticate } from "./middleware.js";
+import { rateLimits } from "../middlewares/rateLimiter.js";
 
 const router = Router();
 
@@ -24,15 +25,17 @@ const router = Router();
  * POST /auth/register
  * Register a new user with email, password, firstName, lastName
  * Returns access token and refresh token (httpOnly cookie)
+ * Rate Limited: 5 requests per 15 minutes
  */
-router.post("/register", validate(RegisterDto), register);
+router.post("/register", rateLimits.auth, validate(RegisterDto), register);
 
 /**
  * POST /auth/login
  * Authenticate user with email and password
  * Returns access token and refresh token (httpOnly cookie)
+ * Rate Limited: 5 requests per 15 minutes
  */
-router.post("/login", validate(LoginDto), login);
+router.post("/login", rateLimits.auth, validate(LoginDto), login);
 
 /**
  * POST /auth/refresh-token
@@ -58,15 +61,17 @@ router.get("/me", authenticate, getCurrentUser);
  * POST /auth/forgot-password
  * Request password reset email
  * Sends reset link to user's email
+ * Rate Limited: 3 requests per 30 minutes
  */
-router.post("/forgot-password", validate(ForgotPasswordDto), forgotPassword);
+router.post("/forgot-password", rateLimits.password, validate(ForgotPasswordDto), forgotPassword);
 
 /**
  * PUT /auth/reset-password/:token
  * Reset user password with reset token
  * Token comes from email link sent by forgot-password endpoint
+ * Rate Limited: 3 requests per 30 minutes
  */
-router.put("/reset-password/:token", validate(ResetPasswordDto), resetPassword);
+router.put("/reset-password/:token", rateLimits.password, validate(ResetPasswordDto), resetPassword);
 
 /**
  * GET /auth/verify-email/:token

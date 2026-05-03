@@ -13,6 +13,7 @@ import {
   generateResetToken,
 } from "../utils/jwt.js";
 import { sendVerificationEmail, sendResetPasswordEmail } from "../config/email.js";
+import { logger } from "../utils/logger.js";
 
 
 export class AuthService {
@@ -141,21 +142,25 @@ export class AuthService {
       .where(eq(usersTable.email, email));
 
     if (users.length === 0) {
+      logger.authFailure("LOGIN", "User not found", email);
       throw ApiError.unauthorized("Invalid email or password");
     }
 
     const user = users[0];
     if (!user) {
+      logger.authFailure("LOGIN", "User not found", email);
       throw ApiError.unauthorized("Invalid email or password");
     }
 
     // Verify password
     const isPasswordValid = await bcryptjs.compare(password, user.password!);
     if (!isPasswordValid) {
+      logger.authFailure("LOGIN", "Invalid password", email);
       throw ApiError.unauthorized("Invalid email or password");
     }
 
     if (!user.isVerified) {
+      logger.authFailure("LOGIN", "Email not verified", email);
       throw ApiError.unauthorized("Please verify your email first");
     }
 
@@ -170,7 +175,10 @@ export class AuthService {
       user_id: user.id,
       refresh_token: hashedToken,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      token_version: 1,
     });
+
+    logger.auth("LOGIN", user.id, { email: user.email });
 
     return {
       accessToken,
@@ -181,6 +189,7 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         isVerified: user.isVerified,
+        role: user.role,
       },
     };
   }
@@ -188,40 +197,43 @@ export class AuthService {
   /**
    * Generate new access token using refresh token
    * - Verifies refresh token validity
-   * - Fetches user from database
-   * - Returns new access token
+   * - Implements token rotation for security
+   * - Increments token version to invalidate old tokens
+   * - Returns new access and refresh tokens
    */
   static async refreshAccessToken(refreshToken: string) {
     try {
-      // 1. verify JWT
+      // 1. verify JWT signature
       const payload = verifyRefreshToken(refreshToken);
 
-      // 2. hash incoming token
+      // 2. hash incoming token for database lookup
       const hashedToken = createHash("sha256")
         .update(refreshToken)
         .digest("hex");
 
       // 3. find session in DB
-      const session = await db
+      const sessions = await db
         .select()
         .from(sessionsTable)
         .where(eq(sessionsTable.refresh_token, hashedToken));
 
-      if (session.length === 0) {
+      if (sessions.length === 0) {
+        logger.authFailure("TOKEN_REFRESH", "Invalid refresh token", payload.userId);
         throw ApiError.unauthorized("Invalid refresh token");
       }
 
-      const [currentSession] = session;
+      const currentSession = sessions[0];
       if (!currentSession) {
         throw ApiError.unauthorized("Invalid refresh token");
       }
 
       // 4. check expiry
       if (new Date(currentSession.expires_at) < new Date()) {
+        logger.authFailure("TOKEN_REFRESH", "Token expired", payload.userId);
         throw ApiError.unauthorized("Refresh token expired");
       }
 
-      // 5. delete old session (rotation)
+      // 5. delete old session (rotation) - invalidates token immediately
       await db
         .delete(sessionsTable)
         .where(eq(sessionsTable.refresh_token, hashedToken));
@@ -235,22 +247,31 @@ export class AuthService {
         userId: payload.userId,
       });
 
-      // 7. store new session
+      // 7. store new session with incremented token version
       const newHashed = createHash("sha256")
         .update(newRefreshToken)
         .digest("hex");
+
+      const newTokenVersion = (currentSession.token_version || 1) + 1;
 
       await db.insert(sessionsTable).values({
         user_id: payload.userId,
         refresh_token: newHashed,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        token_version: newTokenVersion,
       });
+
+      logger.token("TOKEN_ROTATED", payload.userId, { version: newTokenVersion });
 
       return {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
       };
     } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      logger.error("Token refresh failed", error);
       throw ApiError.unauthorized("Invalid refresh token");
     }
   }
@@ -268,6 +289,7 @@ export class AuthService {
         firstName: usersTable.firstName,
         lastName: usersTable.lastName,
         isVerified: usersTable.isVerified,
+        role: usersTable.role,
         createdAt: usersTable.createdAt,
       })
       .from(usersTable)
@@ -294,6 +316,7 @@ export class AuthService {
       .where(eq(usersTable.email, email));
 
     if (users.length === 0) {
+      logger.authFailure("FORGOT_PASSWORD", "User not found", email);
       throw ApiError.badRequest("User not found");
     }
 
@@ -310,7 +333,7 @@ export class AuthService {
     // 4. Set expiry (15 min)
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-    // 5. Delete old tokens (optional cleanup)
+    // 5. Delete old tokens (cleanup)
     await db
       .delete(passwordResetTable)
       .where(eq(passwordResetTable.user_id, user.id));
@@ -322,7 +345,9 @@ export class AuthService {
       expires_at: expiresAt,
     });
 
-    // 🔥 7. IMPORTANT: Send RAW token (not hashed)
+    logger.auth("PASSWORD_RESET_REQUESTED", user.id, { email });
+
+    // 7. Send email with raw token
     console.log("RESET TOKEN:", resetToken);
     await sendResetPasswordEmail(email, resetToken);
 
@@ -339,49 +364,61 @@ export class AuthService {
    * - Updates user password in database
    */
   static async resetPassword(token: string, newPassword: string) {
-    // 1. Hash incoming token
-    const hashed = createHash("sha256")
-      .update(token)
-      .digest("hex");
+    try {
+      // 1. Hash incoming token
+      const hashed = createHash("sha256")
+        .update(token)
+        .digest("hex");
 
-    // 2. Remove expired tokens
-    await db
-      .delete(passwordResetTable)
-      .where(lt(passwordResetTable.expires_at, new Date()));
+      // 2. Remove expired tokens
+      await db
+        .delete(passwordResetTable)
+        .where(lt(passwordResetTable.expires_at, new Date()));
 
-    // 3. Find matching token
-    const records = await db
-      .select()
-      .from(passwordResetTable)
-      .where(eq(passwordResetTable.token, hashed));
+      // 3. Find matching token
+      const records = await db
+        .select()
+        .from(passwordResetTable)
+        .where(eq(passwordResetTable.token, hashed));
 
-    if (records.length === 0) {
-      throw ApiError.badRequest("Invalid or expired reset token");
+      if (records.length === 0) {
+        logger.authFailure("RESET_PASSWORD", "Invalid or expired token");
+        throw ApiError.badRequest("Invalid or expired reset token");
+      }
+
+      const record = records[0]!;
+
+      // 4. Double-check expiry
+      if (new Date(record.expires_at) < new Date()) {
+        logger.authFailure("RESET_PASSWORD", "Token expired", record.user_id);
+        throw ApiError.badRequest("Token expired");
+      }
+
+      // 5. Hash new password
+      const salt = await bcryptjs.genSalt(10);
+      const hashedPassword = await bcryptjs.hash(newPassword, salt);
+
+      // 6. Update user password
+      await db
+        .update(usersTable)
+        .set({ password: hashedPassword })
+        .where(eq(usersTable.id, record.user_id));
+
+      // 7. Delete token (one-time use)
+      await db
+        .delete(passwordResetTable)
+        .where(eq(passwordResetTable.token, hashed));
+
+      logger.auth("PASSWORD_RESET_COMPLETED", record.user_id);
+
+      return { message: "Password reset successfully" };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      logger.error("Password reset failed", error);
+      throw ApiError.internal("Failed to reset password");
     }
-
-    const record = records[0]!;
-
-    // 4. Double-check expiry
-    if (new Date(record.expires_at) < new Date()) {
-      throw ApiError.badRequest("Token expired");
-    }
-
-    // 5. Hash new password
-    const salt = await bcryptjs.genSalt(10);
-    const hashedPassword = await bcryptjs.hash(newPassword, salt);
-
-    // 6. Update user password
-    await db
-      .update(usersTable)
-      .set({ password: hashedPassword })
-      .where(eq(usersTable.id, record.user_id));
-
-    // 7. Delete token (one-time use)
-    await db
-      .delete(passwordResetTable)
-      .where(eq(passwordResetTable.token, hashed));
-
-    return { message: "Password reset successfully" };
   }
 
   /**
@@ -409,55 +446,84 @@ export class AuthService {
   }
 
   static async verifyEmail(token: string) {
-    // 🔥 hash incoming token
-    console.log("TOKEN RECEIVED:", token);
+    try {
+      // 1. Hash incoming token
+      console.log("TOKEN RECEIVED:", token);
 
-    const hashed = createHash("sha256")
-      .update(token)
-      .digest("hex");
+      const hashed = createHash("sha256")
+        .update(token)
+        .digest("hex");
 
-    console.log("HASHED TOKEN:", hashed);
+      console.log("HASHED TOKEN:", hashed);
 
-    const record = await db
-      .select()
-      .from(emailVerificationTable)
-      .where(eq(emailVerificationTable.token, hashed));
+      const records = await db
+        .select()
+        .from(emailVerificationTable)
+        .where(eq(emailVerificationTable.token, hashed));
 
-    console.log("DB RECORD:", record);
+      console.log("DB RECORD:", records);
 
-    if (record.length === 0) {
-      throw ApiError.badRequest("Invalid token");
+      if (records.length === 0) {
+        logger.authFailure("EMAIL_VERIFICATION", "Invalid token");
+        throw ApiError.badRequest("Invalid token");
+      }
+
+      const data = records[0]!;
+
+      // 2. Check expiry
+      if (data.expires_at < new Date()) {
+        logger.authFailure("EMAIL_VERIFICATION", "Token expired", data.user_id);
+        throw ApiError.badRequest("Token expired");
+      }
+
+      // 3. Update user
+      await db
+        .update(usersTable)
+        .set({ isVerified: true })
+        .where(eq(usersTable.id, data.user_id));
+
+      // 4. Delete token
+      await db
+        .delete(emailVerificationTable)
+        .where(eq(emailVerificationTable.id, data.id));
+
+      logger.auth("EMAIL_VERIFIED", data.user_id);
+
+      return { message: "Email verified successfully" };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      logger.error("Email verification failed", error);
+      throw ApiError.badRequest("Invalid or expired verification token");
     }
-
-    const data = record[0]!;
-
-    // 2. Check expiry
-    if (data.expires_at < new Date()) {
-      throw ApiError.badRequest("Token expired");
-    }
-
-    // 3. Update user
-    await db
-      .update(usersTable)
-      .set({ isVerified: true })
-      .where(eq(usersTable.id, data.user_id));
-
-    // 4. Delete token
-    await db
-      .delete(emailVerificationTable)
-      .where(eq(emailVerificationTable.id, data.id));
-
-    return { message: "Email verified successfully" };
   }
 
 
 
   static async logout(refreshToken: string) {
-    const hashed = AuthService.hashToken(refreshToken);
+    try {
+      const hashed = AuthService.hashToken(refreshToken);
 
-    await db
-      .delete(sessionsTable)
-      .where(eq(sessionsTable.refresh_token, hashed));
+      // Find the session to get user ID for logging
+      const sessions = await db
+        .select()
+        .from(sessionsTable)
+        .where(eq(sessionsTable.refresh_token, hashed));
+
+      const [session] = sessions;
+
+      if (session) {
+        logger.auth("LOGOUT", session.user_id);
+      }
+
+      await db
+        .delete(sessionsTable)
+        .where(eq(sessionsTable.refresh_token, hashed));
+    } catch (error) {
+      logger.error("Logout failed", error);
+      throw error;
+    }
   }
 
 
