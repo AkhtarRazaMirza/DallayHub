@@ -1,12 +1,16 @@
 import 'dotenv/config';
+import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 
-/**
- * Drizzle ORM Database Client
- * Uses PostgreSQL driver (node-postgres) for database operations
- * Connection URL comes from DATABASE_URL environment variable
- * 
- * The actual database connection is lazy-loaded on first query execution
- * This allows the server to start even if the database is temporarily unavailable
- */
-export const db = drizzle(process.env.DATABASE_URL!);
+const { Pool } = pg;
+
+const isProduction = process.env.NODE_ENV === "production";
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: isProduction
+    ? { rejectUnauthorized: false }
+    : false,
+});
+
+export const db = drizzle(pool);
