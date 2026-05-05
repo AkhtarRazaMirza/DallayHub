@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
     "dev": "tsc-watch --onSuccess \"node dist/index.js\"",
     "startDB": "docker compose up -d",
     "stopDB": "docker compose down",
-    "studio": "drizzel-kit studio",
+    "studio": "drizzle-kit studio",
     "generateDB": "drizzle-kit generate",
     "migrateDB": "drizzle-kit migrate"
   },
@@ -50,7 +52,6 @@
     "nodemailer": "^8.0.5",
     "pg": "^8.20.0",
     "resend": "^6.12.2",
-    "tsc": "^2.0.4",
     "zod": "^4.3.6"
   }
 }

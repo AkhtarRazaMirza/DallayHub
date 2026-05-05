@@ -1,15 +1,3 @@
-// import nodemailer from "nodemailer";
-
-// SMTP transporter — works with Mailtrap, Gmail, SendGrid, or any SMTP provider
-// const transporter = nodemailer.createTransport({
-//   host: process.env.SMTP_HOST,
-//   port: Number(process.env.SMTP_PORT) || 587,
-//   auth: {
-//     user: process.env.SMTP_USER,
-//     pass: process.env.SMTP_PASS,
-//   },
-// });
-
 import { Resend } from "resend";
 import ApiError from "../utils/error.js";
 
@@ -30,7 +18,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const send = async (to: string, subject: string, html: string) => {
   try {
     const response = await resend.emails.send({
-      from: "AuthCore <onboarding@resend.dev>",
+      from: `${process.env.EMAIL_FROM_NAME} <${process.env.EMAIL_FROM}>`,
       to,
       subject,
       html,
