@@ -40,39 +40,6 @@ export function securityHeaders(
  * @param app - Express application instance
  * @param allowedOrigins - Array of allowed origins (default: localhost for development)
  */
-export function setupCORS(
-  app: Application,
-  allowedOrigins: string[] = [
-    "http://localhost:3000",
-    "http://localhost:8080",
-    process.env.CLIENT_URL || "",
-  ].filter(Boolean)
-) {
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const origin = req.headers.origin as string;
-
-    // Check if origin is allowed
-    if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Access-Control-Allow-Credentials", "true");
-      res.setHeader(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-      );
-      res.setHeader(
-        "Access-Control-Allow-Headers",
-        "Content-Type, Authorization, Accept"
-      );
-    }
-
-    // Handle preflight requests
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
-    }
-
-    next();
-  });
-}
 
 /**
  * Secure cookie configuration
