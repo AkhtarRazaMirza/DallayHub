@@ -27,18 +27,6 @@
   "license": "ISC",
   "type": "module",
   "description": "This is a secure authentication system built with Node.js, Express, and PostgreSQL. It provides features such as user registration, login, password hashing, JWT-based authentication, and email verification. and it also have oauth2.0 authentication with google and github",
-  "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cookie-parser": "^1.4.10",
-    "@types/express": "^4.17.25",
-    "@types/nodemailer": "^8.0.0",
-    "@types/pg": "^8.20.0",
-    "drizzle-kit": "^0.31.10",
-    "tsc-watch": "^7.2.0",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.2",
-    "@types/jsonwebtoken": "^9.0.10"
-  },
   "dependencies": {
     "axios": "^1.15.2",
     "bcryptjs": "^3.0.3",
@@ -52,6 +40,16 @@
     "nodemailer": "^8.0.5",
     "pg": "^8.20.0",
     "resend": "^6.12.2",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+      "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^4.17.25",
+    "@types/nodemailer": "^8.0.0",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "tsc-watch": "^7.2.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "@types/jsonwebtoken": "^9.0.10"
   }
 }
